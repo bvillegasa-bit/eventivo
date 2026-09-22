@@ -1,0 +1,75 @@
+# =============================================================================
+# EVENTIVO — .gitignore global
+# Sistema de seguimiento de eventos académicos UCV campus Callao
+# Regla de oro: NUNCA se versionan secretos, tokens ni archivos de entorno.
+# =============================================================================
+
+# ---------- Node.js / NestJS ----------
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# ---------- Flutter / Dart ----------
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-plugins-dependencies.lock
+.flutter_analytics
+.apple_ignore
+build/app/
+*.iml
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+android/.gradle/
+android/local.properties
+android/app/.cxx/
+android/app/build/
+pubspec.lock.bak
+
+# ---------- Entornos y secretos (¡nunca subir!) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+google-services.json
+GoogleService-Info.plist
+firebase-service-account.json
+service-account.json
+
+# ---------- Logs ----------
+*.log
+logs/
+
+# ---------- Editores / IDE ----------
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# ---------- SDD / herramientas ----------
+.atl/
+.opencode/
+
+# ---------- Otros ----------
+.tmp/
+temp/
+*.tmp

@@ -1,0 +1,38 @@
+@startuml
+title EVENTIVO — Máquina de estados (sección 4.3 de la exploración)
+caption Estados del EVENTO y estados de ASISTENCIA del usuario. "no asistió" es estado de asistencia del usuario, NO del evento (DF-11).
+skinparam defaultFontName "Arial"
+
+state "Estados del EVENTO" as EV {
+  [*] --> BORRADOR
+  BORRADOR --> PUBLICADO : publicar (A-06)
+  BORRADOR --> CANCELADO : descartar borrador
+  PUBLICADO --> INSCRIPCIONES_ABIERTAS : abrir inscripciones (solo si requiere preinscripción)
+  PUBLICADO --> EN_CURSO : hora de inicio (si NO requiere preinscripción)
+  PUBLICADO --> CANCELADO : admin
+  PUBLICADO --> REPROGRAMADO : admin
+  INSCRIPCIONES_ABIERTAS --> EN_CURSO : hora de inicio / cierre de inscripciones
+  INSCRIPCIONES_ABIERTAS --> CANCELADO : admin
+  INSCRIPCIONES_ABIERTAS --> REPROGRAMADO : admin
+  EN_CURSO --> COMPLETADO : hora fin / cierre manual (S-09)
+  EN_CURSO --> CANCELADO : admin (solo con aviso)
+  REPROGRAMADO --> EN_CURSO : nueva fecha/hora
+  REPROGRAMADO --> CANCELADO : admin
+  CANCELADO --> [*] : estado terminal
+  COMPLETADO --> [*] : estado terminal
+}
+
+state "Estados de ASISTENCIA del usuario — evento con preinscripción" as UA1 {
+  [*] --> PREINSCRITO : preinscripción validada (S-07)
+  PREINSCRITO --> CONFIRMADO : check-in QR (S-08)
+  PREINSCRITO --> NO_ASISTIO : derivado al completarse el evento (S-09)
+}
+
+state "Estados de ASISTENCIA del usuario — evento sin preinscripción" as UA2 {
+  [*] --> PENDIENTE : sin registro (antes del cierre)
+  PENDIENTE --> CONFIRMADO : check-in QR (S-08)
+  PENDIENTE --> NO_ASISTIO : derivado al completarse el evento (S-09)
+}
+
+note "CONFIRMADO = asistencia registrada (idempotente: UNIQUE evento+usuario).\nNO_ASISTIO = solo para usuarios con presencia esperada (preinscritos)\no para quienes se esperaba (público objetivo alcanzado se notifica,\npero la derivación aplica a preinscritos — ver DF-11 y RF-11)." as NOTA_ASIST
+@enduml

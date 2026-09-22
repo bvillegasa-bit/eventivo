@@ -1,0 +1,131 @@
+@startuml
+title EVENTIVO — Diagrama de Actividades del Sistema
+caption Sistema de Seguimiento de Eventos Académicos UCV · Campus Callao — flujo según exploración 4.2 (carriles), bifurcaciones 4.4-1..7, estados 4.3. Zona horaria referencial: UTC−5.
+skinparam defaultFontName "Arial"
+skinparam ActivityBorderColor #444444
+skinparam ActivityBackgroundColor #FEFEFE
+skinparam swimlaneBorderColor #444444
+skinparam swimlaneTitleBackgroundColor #E8EEF7
+skinparam swimlaneTitleFontStyle bold
+
+' ============ FASE 1 · CREACIÓN Y PUBLICACIÓN ============
+|Administrativo|
+start
+:A-01. Autenticarse (email + contraseña)\n→ obtener token JWT (rol: administrativo);
+|Sistema|
+:S-01. Validar credenciales, emitir JWT\ny aplicar RBAC (403 si el rol no autoriza);
+|Administrativo|
+:A-02. Crear evento en BORRADOR:\ntítulo, descripción, fechas, sede, modalidad,\nponentes, público objetivo, ¿preinscripción?,\naforo, recordatorios (24 h / 30 min), encuesta;
+:A-03. Guardar o editar el borrador\n(validaciones: fechas coherentes, aforo > 0 si aplica);
+|Sistema|
+:S-02. Validar y persistir el evento (BORRADOR)\ny registrar auditoría de la acción;
+:S-04. Agendar recordatorios push (T−24 h y T−30 min)\nsegún la configuración del evento;
+note right
+  Los recordatorios T−24 h / T−30 min se ejecutan
+  como JOBS AGENDADOS (node-cron), en paralelo
+  al ciclo interactivo del evento.
+end note
+|Administrativo|
+if (A-04 · 4.4-1 · ¿El evento requiere preinscripción?) then (Sí)
+  :A-05. Abrir inscripciones\n(estado: INSCRIPCIONES_ABIERTAS);
+else (No)
+  :Asistencia libre: el evento pasará\ndirecto a EN_CURSO en su hora de inicio;
+endif
+:A-06. Publicar evento\n(BORRADOR → PUBLICADO);
+|Sistema|
+:S-05. Difundir push FCM (aviso de publicación)\nal público objetivo (todos / docentes / estudiantes);
+:S-05b. Jobs agendados en paralelo: enviar\nrecordatorio T−24 h y T−30 min (según configuración);
+
+' ============ FASE 2 · PREINSCRIPCIÓN (DOCENTE / ESTUDIANTE) ============
+|Docente|
+:D-01 / E-01. Registrarse (docente | estudiante)\no autenticarse con JWT;
+:D-02 / E-02. Ver el feed/agenda de eventos\n(filtros por estado y fecha);
+:D-03 / E-03. Ver detalle y estado del evento\n(trazabilidad de inscripciones y asistencias propias);
+if (D-04 / E-04 · ¿El evento requiere\npreinscripción y está abierto?) then (Sí)
+  if (¿Cupo disponible en el aforo mostrado?) then (Sí)
+    :Solicitar preinscripción;
+    |Sistema|
+    :S-07. Validar preinscripción (transacción con\nbloqueo de fila sobre el cupo): estado\nINSCRIPCIONES_ABIERTAS, cupo libre, sin duplicado;
+    if (4.4-2 · ¿Validación exitosa\ny cupo libre confirmado?) then (Sí)
+      :Registrar preinscripción y decrementar cupo\n(estado del usuario: PREINSCRITO);
+    else (No)
+      :Rechazar con aviso «aforo lleno»\n(waitlist como evolución futura);
+    endif
+  else (No)
+    :Aviso «aforo lleno — sin cupos disponibles»;
+  endif
+else (No)
+  :Asistencia libre: no requiere preinscripción;
+endif
+
+|Administrativo|
+:A-08. Monitorear inscripciones (si las hubo):\nlista de preinscritos, cupos restantes,\ncierre anticipado si el aforo se llena;
+
+' ============ FASE 3 · INCIDENCIA (REPROGRAMAR / CANCELAR) ============
+if (A-09 · 4.4-3 · ¿Incidencia durante el ciclo?) then (Reprogramar)
+  :A-10. Reprogramar evento\n(estado: REPROGRAMADO; nueva fecha/hora);
+  |Sistema|
+  :Conservar preinscripciones · re-agendar recordatorios\n· regenerar ventana del QR · notificar push\na interesados y preinscritos;
+  :S-06a. Transición automática en la nueva fecha:\nREPROGRAMADO → EN_CURSO;
+elseif (Cancelar) then (Cancelar)
+  :A-11. Cancelar evento (estado: CANCELADO · terminal);
+  |Sistema|
+  :Liberar cupos · notificar push\n· bloquear preinscripciones y check-in;
+  stop
+else (Sin incidencia)
+  |Sistema|
+  :S-06b. Transición automática por horario:\nINICIO → EN_CURSO (con override manual del admin);
+endif
+
+|Sistema|
+:S-06. Garantizar estado EN_CURSO (automático por horario,\noverride manual permitido — PA-04);
+:S-03. Activar el QR único por instancia del evento\n(ventana de validez = estado EN_CURSO);
+|Administrativo|
+:A-13. Exponer / mostrar / imprimir el QR del evento\n(PA-09: pantalla + descargable/imprimible);
+
+' ============ FASE 4 · EJECUCIÓN (CHECK-IN) ============
+|Docente|
+:D-05 / E-05. Recibir recordatorios push\n(T−24 h y T−30 min, según configuración);
+:D-06 / E-06. (Opcional) Agregar el evento\nal calendario del celular;
+:D-07 / E-07. Self check-in: escanear el QR\ndel evento con la cámara del celular;
+|Sistema|
+:S-08a. Validar la ventana del QR (4.4-4):\n¿evento EN_CURSO y token vigente?;
+if (4.4-4 · ¿Evento EN_CURSO\ny QR vigente?) then (Sí)
+  :S-08b. Validar elegibilidad (4.4-5):\n¿preinscrito si el evento lo exige\ny sin check-in previo (idempotencia)?;
+  if (4.4-5 · ¿Elegible y sin check-in previo?) then (Sí)
+    :S-08c. Registrar asistencia (UNIQUE evento+usuario):\nestado CONFIRMADO + fecha/hora de escaneo;
+  else (No)
+    :Rechazar check-in: no elegible\n(no preinscrito en evento con cupo)\no registro duplicado;
+  endif
+else (No)
+  :Rechazar check-in: QR fuera de la ventana\n(evento aún no EN_CURSO o ya cerrado);
+endif
+|Docente|
+:D-08 / E-08. Ver estado de asistencia actualizado\n(CONFIRMADO) y trazabilidad en la app;
+
+' ============ FASE 5 · CIERRE Y ENCUESTA ============
+|Sistema|
+if (4.4-6 · ¿El evento se completó?\n[hora fin o cierre manual]) then (Sí)
+  :S-09. Transición EN_CURSO → COMPLETADO\ny derivar asistencias: marcar NO_ASISTIO\na preinscritos sin check-in;
+  :S-10. Habilitar encuesta post-evento\npara asistentes confirmados;
+else (No)
+  stop
+endif
+|Docente|
+:D-09 / E-09. Responder encuesta post-evento\n(calificación 1–5 + comentarios) si tiene\nasistencia confirmada;
+|Sistema|
+if (4.4-7 · ¿Usuario con check-in confirmado?) then (Sí)
+  :Persistir respuesta de encuesta (atribuida\ninternamente; resultados agregados y anónimos);
+else (No)
+  :Sin acceso a la encuesta\n(solo asistentes confirmados);
+endif
+
+' ============ FASE 6 · REPORTES Y AUDITORÍA ============
+|Administrativo|
+:A-15. Consultar reportes: asistencia por evento,\n% de participación, ranking de eventos,\nasistencia por docente (asistente y ponente),\nmétricas generales;
+:A-16. (Opcional) Visualizar resultados\nde encuestas (agregados);
+|Sistema|
+:S-11. Computar métricas y reportes bajo demanda\n(agregaciones sobre asistencia, preinscripciones\ny eventos);
+:S-12. Registrar auditoría de acciones sensibles\n(creación, publicación, cancelación,\nreprogramación, cierre);
+stop
+@enduml

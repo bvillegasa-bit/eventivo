@@ -1,0 +1,119 @@
+flowchart TB
+    %% ===== EVENTIVO — Diagrama de actividades (alternativa Mermaid) =====
+    %% Carriles simulados con subgraphs
+
+    subgraph ADM["Carril: ADMINISTRATIVO"]
+        A01["A-01 Autenticarse (JWT, rol administrativo)"]
+        A02["A-02 Crear evento en BORRADOR: datos, fechas, sede, modalidad, ponentes, público objetivo, ¿preinscripción?, aforo, recordatorios, encuesta"]
+        A03["A-03 Guardar o editar borrador (validaciones)"]
+        A05["A-05 Abrir inscripciones (INSCRIPCIONES_ABIERTAS)"]
+        A06["A-06 Publicar evento (BORRADOR → PUBLICADO)"]
+        A08["A-08 Monitorear inscripciones: preinscritos, cupos, cierre anticipado"]
+        A10["A-10 Reprogramar evento (REPROGRAMADO, nueva fecha/hora)"]
+        A11["A-11 Cancelar evento (CANCELADO — terminal)"]
+        A13["A-13 Exponer / mostrar / imprimir el QR del evento"]
+        A15["A-15 Consultar reportes: asistencia por evento, % participación, ranking, asistencia por docente, métricas"]
+        A16["A-16 (Opcional) Ver resultados de encuestas (agregados)"]
+    end
+
+    subgraph SIS["Carril: SISTEMA"]
+        S01["S-01 Validar credenciales, emitir JWT, aplicar RBAC"]
+        S02["S-02 Validar y persistir evento (BORRADOR) + auditoría"]
+        S04["S-04 Agendar recordatorios push T−24h / T−30min (jobs paralelos)"]
+        S05["S-05 Difundir push FCM al público objetivo"]
+        S07["S-07 Validar preinscripción (transacción con bloqueo de fila, sin sobrecupo)"]
+        S06["S-06 Garantizar EN_CURSO (automático por horario, override admin)"]
+        S03["S-03 Activar QR único por instancia (ventana = EN_CURSO)"]
+        S08A["S-08a Validar ventana del QR (4.4-4)"]
+        S08B["S-08b Validar elegibilidad (4.4-5): preinscrito si aplica, sin check-in previo"]
+        S08C["S-08c Registrar asistencia idempotente (UNIQUE evento+usuario) → CONFIRMADO"]
+        S09["S-09 EN_CURSO → COMPLETADO y derivar NO_ASISTIO a preinscritos sin check-in"]
+        S10["S-10 Habilitar encuesta post-evento para asistentes confirmados"]
+        S11["S-11 Computar métricas y reportes bajo demanda"]
+        S12["S-12 Registrar auditoría de acciones sensibles"]
+    end
+
+    subgraph DOC["Carril: DOCENTE"]
+        D1["D-01 Registrarse o autenticarse (JWT)"]
+        D2["D-02 Ver feed/agenda (filtros)"]
+        D3["D-03 Ver detalle y estado del evento"]
+        D5["D-05 Recibir recordatorios push (T−24h / T−30min)"]
+        D7["D-07 Self check-in: escanear el QR con la cámara"]
+        D8["D-08 Ver estado de asistencia (CONFIRMADO) y trazabilidad"]
+        D9["D-09 Responder encuesta post-evento (si asistió)"]
+    end
+
+    subgraph EST["Carril: ESTUDIANTE"]
+        E1["E-01 Registrarse o autenticarse (JWT)"]
+        E2["E-02 Ver feed/agenda (filtros)"]
+        E3["E-03 Ver detalle y estado del evento"]
+        E5["E-05 Recibir recordatorios push (T−24h / T−30min)"]
+        E7["E-07 Self check-in: escanear el QR con la cámara"]
+        E8["E-08 Ver estado de asistencia (CONFIRMADO) y trazabilidad"]
+        E9["E-09 Responder encuesta post-evento (si asistió)"]
+    end
+
+    %% ===== FASE 1 · CREACIÓN Y PUBLICACIÓN =====
+    A01 --> S01 --> A02 --> A03 --> S02 --> S04
+    S04 --> DEC1{"4.4-1 · ¿Requiere preinscripción?"}
+    DEC1 -->|Sí| A05 --> A06
+    DEC1 -->|No| LIBRE1["Asistencia libre → irá directo a EN_CURSO"]
+    LIBRE1 --> A06
+    A06 --> S05
+
+    %% ===== FASE 2 · PREINSCRIPCIÓN =====
+    S05 --> D1
+    S05 --> E1
+    D1 --> D2 --> D3
+    E1 --> E2 --> E3
+    D3 --> DEC2{"¿Requiere preinscripción y está abierto?"}
+    E3 --> DEC2
+    DEC2 -->|Sí| DEC3{"¿Cupo disponible?"}
+    DEC3 -->|Sí| SOL["Solicitar preinscripción"] --> S07
+    DEC3 -->|No| RECHAZO1["Aviso «aforo lleno»"]
+    S07 --> DEC4{"4.4-2 · ¿Cupo libre confirmado?"}
+    DEC4 -->|Sí| REGPRE["Registrar preinscripción y decrementar cupo → PREINSCRITO"]
+    DEC4 -->|No| RECHAZO1
+    DEC2 -->|No| LIBRE2["Asistencia libre: no requiere preinscripción"]
+    REGPRE --> A08
+    LIBRE2 --> A08
+    RECHAZO1 --> A08
+
+    %% ===== FASE 3 · INCIDENCIA =====
+    A08 --> DEC5{"4.4-3 · ¿Incidencia durante el ciclo?"}
+    DEC5 -->|Reprogramar| A10 --> REPROG["Conservar preinscripciones, re-agendar recordatorios, regenerar QR, notificar"]
+    REPROG --> S06
+    DEC5 -->|Cancelar| A11 --> CANCEL["Liberar cupos, notificar, bloquear preinscripciones y check-in"]
+    CANCEL --> FINSTOP["∎ FIN (evento cancelado)"]
+    DEC5 -->|Sin incidencia| S06
+
+    %% ===== FASE 4 · EJECUCIÓN / CHECK-IN =====
+    S06 --> S03 --> A13
+    A13 --> D5 --> D7
+    A13 --> E5 --> E7
+    D7 --> S08A
+    E7 --> S08A
+    S08A --> DEC6{"4.4-4 · ¿Evento EN_CURSO y QR vigente?"}
+    DEC6 -->|Sí| S08B --> DEC7{"4.4-5 · ¿Elegible y sin check-in previo?"}
+    DEC6 -->|No| RECHAZO2["Rechazar check-in: QR fuera de ventana"]
+    DEC7 -->|Sí| S08C --> D8
+    DEC7 -->|No| RECHAZO3["Rechazar check-in: no elegible o duplicado"]
+    S08C --> E8
+
+    %% ===== FASE 5 · CIERRE Y ENCUESTA =====
+    D8 --> DEC8{"4.4-6 · ¿Evento completado?"}
+    E8 --> DEC8
+    DEC8 -->|Sí| S09 --> S10
+    DEC8 -->|No| ESPERA["Continuar en curso / transición automática"]
+    S10 --> D9
+    S10 --> E9
+    D9 --> DEC9{"4.4-7 · ¿Asistió con check-in confirmado?"}
+    E9 --> DEC9
+    DEC9 -->|Sí| RESP["Persistir respuesta (atribuida internamente, resultados anónimos)"]
+    DEC9 -->|No| SINACC["Sin acceso a la encuesta"]
+
+    %% ===== FASE 6 · REPORTES =====
+    RESP --> A15
+    SINACC --> A15
+    A15 --> A16
+    A16 --> S11 --> S12 --> FIN["∎ FIN"]
