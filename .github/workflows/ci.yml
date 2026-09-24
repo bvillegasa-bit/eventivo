@@ -32,6 +32,16 @@ jobs:
     with:
       working_directory: services/auth
 
+  openapi:
+    name: OpenAPI — validación de especificaciones (TT-05)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint OpenAPI (auth)
+        run: npx --yes @redocly/cli@latest lint docs/api/auth.openapi.yaml
+
   # Plantilla para incorporar más servicios en sprints siguientes:
   # evento:
   #   name: evento-service

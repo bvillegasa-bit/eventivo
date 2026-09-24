@@ -18,6 +18,7 @@ info:
     name: EVENTIVO — UCV campus Callao
   license:
     name: UNLICENSED (proyecto académico)
+    url: https://github.com/bvillegasa-bit/eventivo
 
 servers:
   - url: https://api.eventivo.ucv.edu.pe
@@ -37,6 +38,7 @@ paths:
       tags: [health]
       summary: Healthcheck del servicio
       operationId: healthCheck
+      security: []
       responses:
         '200':
           description: Servicio disponible
@@ -65,6 +67,7 @@ paths:
         Responde `201` con par de tokens y perfil. El rol `administrativo` no
         puede auto-registrarse (se provisiona por seed): responde `403`.
       operationId: registrarUsuario
+      security: []
       requestBody:
         required: true
         content:
@@ -103,6 +106,7 @@ paths:
         `401` genérico tanto para credenciales incorrectas como para cuentas
         inexistentes o desactivadas (anti-enumeración, R-07).
       operationId: iniciarSesion
+      security: []
       requestBody:
         required: true
         content:
@@ -138,6 +142,7 @@ paths:
         Reuso de un refresh ya rotado o revocado → `401` y revocación de TODA
         la familia (obliga a volver a iniciar sesión).
       operationId: rotarRefresh
+      security: []
       requestBody:
         required: true
         content:
@@ -169,6 +174,7 @@ paths:
       description: |
         Idempotente: un token inválido o ya revocado no genera error.
       operationId: cerrarSesion
+      security: []
       requestBody:
         required: true
         content:
@@ -191,6 +197,7 @@ paths:
     get:
       tags: [auth]
       summary: Perfil del usuario autenticado (T-S1.09)
+      operationId: obtenerMiPerfil
       security:
         - bearerAuth: []
       responses:
@@ -210,6 +217,7 @@ paths:
       description: |
         Endpoint de prueba del guard de roles. Un estudiante o docente recibe
         `403`.
+      operationId: adminPing
       security:
         - bearerAuth: []
       responses:
@@ -319,14 +327,7 @@ components:
       properties:
         refreshToken:
           type: string
-          description: JWT de tipo 'refresh' vigente
-          example: eyJhbGciOiJIUzI1NiIs...
-    LogoutRequest:
-      type: object
-      required: [refreshToken]
-      properties:
-        refreshToken:
-          type: string
+          description: JWT de tipo 'refresh' vigente (también usado por /auth/logout)
           example: eyJhbGciOiJIUzI1NiIs...
     Usuario:
       type: object

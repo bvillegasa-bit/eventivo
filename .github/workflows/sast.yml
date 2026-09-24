@@ -43,4 +43,7 @@ jobs:
       - name: Semgrep
         uses: docker://returntocorp/semgrep:latest
         with:
-          args: semgrep --config auto --severity ERROR --error --metrics=off .
+          # p/security-audit = ruleset comunitario de seguridad (T-S1.04).
+          # --config auto exige métricas activadas; con --metrics=off se usa
+          # un config explícito. --error rompe CI ante hallazgos de severidad ERROR.
+          args: semgrep --config p/security-audit --severity ERROR --error --metrics=off .
