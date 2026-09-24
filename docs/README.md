@@ -13,6 +13,7 @@ Documentación formal de **EVENTIVO**, sistema de seguimiento de eventos académ
 | 05 | [05-arquitectura.md](05-arquitectura.md) | **Arquitectura** — Nginx gateway, 5 microservicios NestJS, PostgreSQL esquema-por-servicio, ERD, contratos API, MVVM Flutter, despliegue free tier y seguridad. |
 | 06 | [06-backlog-scrum.md](06-backlog-scrum.md) | **Backlog SCRUM** — 4 sprints por verticales, 77 tareas, definición de Done por sprint, roadmap y trazabilidad RF→tareas. |
 | 07 | [07-calidad-y-seguridad.md](07-calidad-y-seguridad.md) | **Calidad y seguridad** — matriz ISO/IEC 25010, capa OWASP Top 10 y criterios de aceptación no funcionales. |
+| 08 | [manual-demo-s1.md](manual-demo-s1.md) | **Manual de demo del Sprint 1** — guion paso a paso (salud, registro, login + restauración, RBAC, rate limit, red interna, calidad y cierre) con comandos `curl` y evidencias. |
 
 ## Decisiones de arquitectura
 

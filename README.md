@@ -30,29 +30,32 @@ EVENTIVO resuelve ese vacío con: difusión push, recordatorios configurables po
 
 ## Estado del proyecto
 
-- **Fase**: Sprint 1 en curso — implementación del **Batch 1** (infra, CI, auth-service completo y documentación técnica).
+- **Fase**: Sprint 1 en curso — implementación del **Batch 2** (app Flutter + gateway + red interna + CI de la app).
 - **Proceso**: SCRUM — 4 sprints de 2 semanas (~2 meses hasta la demo).
 - **Entregado hasta ahora**:
   - Infraestructura de desarrollo local: Docker Compose con 5 PostgreSQL 16 por servicio ([`docker/docker-compose.dev.yml`](docker/docker-compose.dev.yml)).
-  - **auth-service** (NestJS 11 + TypeORM): registro (RF-01), login con anti-enumeración, refresh rotativo 7 días con revocación por reuso (RF-02, DT-05), guards JWT + RBAC (T-S1.09) y seed de administradores (T-S1.10). Unit 42/42, e2e 19/19, lint y build limpios.
-  - CI verde (lint + unit + build + e2e + seed) y SAST (CodeQL + Semgrep) en GitHub Actions; gitleaks en CI (TT-02).
-  - Documentación: DT-09 (free tier $0) y OpenAPI del auth-service (TT-05).
+  - **auth-service** (NestJS 11 + TypeORM): registro (RF-01), login con anti-enumeración, refresh rotativo 7 días con revocación por reuso (RF-02, DT-05), guards JWT + RBAC (T-S1.09) y seed de administradores (T-S1.10). Unit 48/48, lint y build limpios, cobertura global > 95 %.
+  - **Red interna (DT-02, T-S1.15)**: endpoint `GET /internal/auth/usuarios/:id` protegido con `X-Service-Key` (guard con comparación en tiempo constante) + e2e (23 pruebas).
+  - **Gateway Nginx (T-S1.14)**: [`gateway/nginx/`](gateway/nginx/README.md) — routing `/auth/*` → auth-service, rate limiting por IP (20 r/s global, 5 r/s en login), `/internal/*` bloqueado al exterior (403), encabezados de seguridad; validado con `nginx -t` en la imagen oficial.
+  - **App Flutter (MVVM, T-S1.11..T-S1.17)**: [`app/`](app/README.md) — registro/login, restauración de sesión, refresh automático (interceptor), demo RBAC y logout; `flutter analyze` limpio y **31/31 tests**.
+  - **CI verde** con job de la app (`gitleaks` + `auth` + `openapi` + `app`) y SAST (CodeQL + Semgrep); gitleaks en CI (TT-02).
+  - Documentación: DT-09 (free tier $0), OpenAPI del auth-service (TT-05) y **manual de demo del Sprint 1** ([`docs/manual-demo-s1.md`](docs/manual-demo-s1.md)).
 - **Pieza central del entregable**: [diagrama de actividades del sistema](docs/04-diagrama-de-actividades.md) con carriles Administrativo / Sistema / Docente / Estudiante.
 
 ## Estructura del repositorio
 
 ```text
 eventivo/
-├── app/                  # Flutter (MVVM + Riverpod + GoRouter) — sprint 2+
+├── app/                  # Flutter (MVVM + Riverpod + GoRouter) — Sprint 1 Batch 2 ✅
 ├── services/
 │   └── auth/             # auth-service (NestJS 11, API de autenticación)
 ├── gateway/
-│   └── nginx/            # API Gateway Nginx (config en sprint 1 batch 2)
+│   └── nginx/            # API Gateway Nginx (routing, rate limit, red interna) ✅
 ├── docker/
-│   └── docker-compose.dev.yml  # 5 PostgreSQL 16 + servicios en dev
+│   └── docker-compose.dev.yml  # 5 PostgreSQL 16 + auth + gateway en dev
 ├── seeds/
 │   └── run-all.mjs       # runner de seeds de todos los servicios
-├── docs/                 # charter, PRD, casos de uso, arquitectura, decisiones, OpenAPI
+├── docs/                 # charter, PRD, casos de uso, arquitectura, manual de demo, OpenAPI
 └── .github/workflows/    # ci.yml, service-ci.yml, sast.yml + dependabot.yml
 ```
 
@@ -86,6 +89,7 @@ despliegue (deploy de Render/Supabase) y **nunca** se versionan:
 | [docs/05-arquitectura.md](docs/05-arquitectura.md) | Arquitectura, ERD, contratos API, MVVM Flutter, despliegue |
 | [docs/06-backlog-scrum.md](docs/06-backlog-scrum.md) | Backlog SCRUM: 4 sprints, 77 tareas, Definición de Done, trazabilidad |
 | [docs/07-calidad-y-seguridad.md](docs/07-calidad-y-seguridad.md) | Matriz ISO/IEC 25010, capa OWASP, criterios no funcionales |
+| [docs/manual-demo-s1.md](docs/manual-demo-s1.md) | **Manual de demo del Sprint 1** (guion paso a paso con curl y evidencias) |
 | [docs/decisiones/](docs/decisiones/) | Registro de decisiones de arquitectura (ADR): DT-09 free tier $0 |
 | [docs/api/](docs/api/) | Especificaciones OpenAPI por servicio: auth |
 | [docs/diagramas/](docs/diagramas/) | Diagramas renderizados (PNG) y fuentes (PlantUML/Mermaid) |

@@ -1,6 +1,7 @@
 name: ci
 
-# CI principal (T-S1.03): gitleaks (TT-02) + matriz de servicios vía service-ci.
+# CI principal (T-S1.03): gitleaks (TT-02) + matriz de servicios vía service-ci
+# + app Flutter (T-S1.17: pub get, analyze, test).
 on:
   push:
     branches: [main]
@@ -41,6 +42,36 @@ jobs:
 
       - name: Lint OpenAPI (auth)
         run: npx --yes @redocly/cli@latest lint docs/api/auth.openapi.yaml
+
+  app:
+    name: app — Flutter (analyze + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Cache de dependencias (pub)
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/app/.dart_tool
+          key: pub-${{ runner.os }}-${{ hashFiles('app/pubspec.lock') }}
+
+      - name: Obtener dependencias
+        run: flutter pub get
+
+      - name: Análisis estático
+        run: flutter analyze
+
+      - name: Pruebas (unit + widget)
+        run: flutter test
 
   # Plantilla para incorporar más servicios en sprints siguientes:
   # evento:
