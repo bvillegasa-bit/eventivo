@@ -1,0 +1,425 @@
+openapi: 3.0.3
+info:
+  title: EVENTIVO — API de autenticación (auth-service)
+  version: 1.0.0
+  description: |
+    Especificación OpenAPI del servicio de autenticación de EVENTIVO
+    (RF-01 registro, RF-02 login/refresh rotativo/logout y RBAC T-S1.09).
+
+    - Todos los mensajes de error son **genéricos** para evitar enumeración de
+      cuentas (R-07): `401` no distingue email inexistente de contraseña
+      incorrecta; `409` no confirma que el email exista.
+    - El access token dura 15 minutos y el refresh token 7 días (rotativo).
+    - Los **refresh tokens nunca autentican** rutas protegidas (rechazados por
+      el guard JWT). Solo valen en `POST /auth/refresh` y `POST /auth/logout`.
+    - `POST /auth/registro`, `/auth/login`, `/auth/refresh` y `/auth/logout`
+      están limitados por IP+email (10 intentos / 15 min → `429` + `Retry-After`).
+  contact:
+    name: EVENTIVO — UCV campus Callao
+  license:
+    name: UNLICENSED (proyecto académico)
+
+servers:
+  - url: https://api.eventivo.ucv.edu.pe
+    description: Producción (demo, free tier)
+  - url: http://localhost:3001
+    description: Desarrollo local (Docker Compose)
+
+tags:
+  - name: auth
+    description: Autenticación (RF-01, RF-02)
+  - name: health
+    description: Healthcheck del servicio
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Healthcheck del servicio
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [estado, servicio, hora]
+                properties:
+                  estado:
+                    type: string
+                    example: ok
+                  servicio:
+                    type: string
+                    example: auth
+                  hora:
+                    type: string
+                    format: date-time
+                    example: '2026-09-24T21:17:48.986Z'
+
+  /auth/registro:
+    post:
+      tags: [auth]
+      summary: Registrar un usuario estudiante o docente (RF-01)
+      description: |
+        Responde `201` con par de tokens y perfil. El rol `administrativo` no
+        puede auto-registrarse (se provisiona por seed): responde `403`.
+      operationId: registrarUsuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroRequest'
+      responses:
+        '201':
+          description: Cuenta creada y sesión iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutenticacion'
+        '400':
+          $ref: '#/components/responses/ErrorValidacion'
+        '403':
+          description: Rol administrativo no permitido (mensaje genérico)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: Email ya registrado (respuesta genérica, anti-enumeración)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '429':
+          $ref: '#/components/responses/LimiteIntentos'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Iniciar sesión con email y contraseña (RF-02)
+      description: |
+        `401` genérico tanto para credenciales incorrectas como para cuentas
+        inexistentes o desactivadas (anti-enumeración, R-07).
+      operationId: iniciarSesion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada con par de tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutenticacion'
+        '400':
+          $ref: '#/components/responses/ErrorValidacion'
+        '401':
+          description: Credenciales inválidas (mensaje genérico)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '429':
+          $ref: '#/components/responses/LimiteIntentos'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotar el refresh token (RF-02, DT-05)
+      description: |
+        Emite un access token nuevo y abre una sesión de refresh NUEVA de la
+        misma familia, revocando la anterior.
+
+        Reuso de un refresh ya rotado o revocado → `401` y revocación de TODA
+        la familia (obliga a volver a iniciar sesión).
+      operationId: rotarRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Par de tokens nuevo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParTokens'
+        '400':
+          $ref: '#/components/responses/ErrorValidacion'
+        '401':
+          description: Sesión inválida, expirada o reuso detectado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '429':
+          $ref: '#/components/responses/LimiteIntentos'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Cerrar sesión (revocar refresh) (RF-02)
+      description: |
+        Idempotente: un token inválido o ya revocado no genera error.
+      operationId: cerrarSesion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Sesión cerrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeRespuesta'
+        '400':
+          $ref: '#/components/responses/ErrorValidacion'
+        '429':
+          $ref: '#/components/responses/LimiteIntentos'
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Perfil del usuario autenticado (T-S1.09)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil público (nunca incluye hashes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /auth/admin-ping:
+    get:
+      tags: [auth]
+      summary: Fixture de RBAC — solo rol administrativo (T-S1.09)
+      description: |
+        Endpoint de prueba del guard de roles. Un estudiante o docente recibe
+        `403`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Acceso administrativo correcto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeRespuesta'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          description: El rol no tiene permisos administrativos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (tipo 'access', 15 min). Los refresh NO valen aquí.
+
+  responses:
+    ErrorValidacion:
+      description: |
+        Validación del payload falló (whitelist + forbidNonWhitelisted): 400.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorValidacion'
+    NoAutenticado:
+      description: Token ausente, inválido, expirado o de tipo 'refresh'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorRespuesta'
+    LimiteIntentos:
+      description: Demasiados intentos (10 por IP+email cada 15 min)
+      headers:
+        Retry-After:
+          description: Segundos hasta reponer el límite
+          schema:
+            type: integer
+            example: 900
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorRespuesta'
+
+  schemas:
+    RegistroRequest:
+      type: object
+      required: [email, password, rol, nombres, apellidos]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: alu.2024010101@eventivo.ucv.edu.pe
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: Mínimo 8 caracteres (bcrypt cost 12)
+          example: ClaveSegura123!
+        rol:
+          type: string
+          enum: [estudiante, docente]
+          description: 'administrativo NO es válido aquí (se provisiona por seed)'
+        nombres:
+          type: string
+          maxLength: 120
+          example: Ana
+        apellidos:
+          type: string
+          maxLength: 120
+          example: García
+        codigoUcv:
+          type: string
+          maxLength: 32
+          description: Obligatorio en el modelo de datos académico, opcional en el DTO
+          example: '2024010101'
+        telefono:
+          type: string
+          maxLength: 32
+          example: '+51999999999'
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: alu.2024010101@eventivo.ucv.edu.pe
+        password:
+          type: string
+          format: password
+          example: ClaveSegura123!
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          description: JWT de tipo 'refresh' vigente
+          example: eyJhbGciOiJIUzI1NiIs...
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+    Usuario:
+      type: object
+      description: Perfil público — nunca incluye hashes ni datos sensibles
+      required: [id, email, rol, nombres, apellidos, codigoUcv, telefono, activo, creadoEn]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a98cde13-5f85-4a05-8fc1-5ca439dc8eb8
+        email:
+          type: string
+          format: email
+          example: alu.2024010101@eventivo.ucv.edu.pe
+        rol:
+          type: string
+          enum: [estudiante, docente, administrativo]
+        nombres:
+          type: string
+          example: Ana
+        apellidos:
+          type: string
+          example: García
+        codigoUcv:
+          type: string
+          nullable: true
+          example: '2024010101'
+        telefono:
+          type: string
+          nullable: true
+          example: '+51999999999'
+        activo:
+          type: boolean
+          example: true
+        creadoEn:
+          type: string
+          format: date-time
+          example: '2026-09-24T20:00:00.000Z'
+    ParTokens:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+          description: JWT de tipo 'access' — 15 minutos
+          example: eyJhbGciOiJIUzI1NiIs...
+        refreshToken:
+          type: string
+          description: JWT de tipo 'refresh' — 7 días, rotativo
+          example: eyJhbGciOiJIUzI1NiIs...
+    RespuestaAutenticacion:
+      allOf:
+        - $ref: '#/components/schemas/ParTokens'
+        - type: object
+          required: [usuario]
+          properties:
+            usuario:
+              $ref: '#/components/schemas/Usuario'
+    MensajeRespuesta:
+      type: object
+      required: [mensaje]
+      properties:
+        mensaje:
+          type: string
+          example: Sesión cerrada correctamente
+    ErrorValidacion:
+      type: object
+      description: 400 de NestJS (ValidationPipe con forbidNonWhitelisted)
+      properties:
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          example: ['email must be an email', 'password must be longer than or equal to 8 characters']
+        error:
+          type: string
+          example: Bad Request
+        statusCode:
+          type: integer
+          example: 400
+    ErrorRespuesta:
+      type: object
+      description: Error estándar de NestJS (mensajes genéricos en español)
+      required: [message, statusCode]
+      properties:
+        message:
+          type: string
+          example: Credenciales inválidas
+        error:
+          type: string
+          example: Unauthorized
+        statusCode:
+          type: integer
+          example: 401

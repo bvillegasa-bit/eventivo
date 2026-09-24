@@ -30,9 +30,49 @@ EVENTIVO resuelve ese vacío con: difusión push, recordatorios configurables po
 
 ## Estado del proyecto
 
-- **Fase**: documentación inicial materializada (charter, PRD, casos de uso, diagrama de actividades, arquitectura, backlog SCRUM) para la revisión del Ingeniero.
+- **Fase**: Sprint 1 en curso — implementación del **Batch 1** (infra, CI, auth-service completo y documentación técnica).
 - **Proceso**: SCRUM — 4 sprints de 2 semanas (~2 meses hasta la demo).
+- **Entregado hasta ahora**:
+  - Infraestructura de desarrollo local: Docker Compose con 5 PostgreSQL 16 por servicio ([`docker/docker-compose.dev.yml`](docker/docker-compose.dev.yml)).
+  - **auth-service** (NestJS 11 + TypeORM): registro (RF-01), login con anti-enumeración, refresh rotativo 7 días con revocación por reuso (RF-02, DT-05), guards JWT + RBAC (T-S1.09) y seed de administradores (T-S1.10). Unit 42/42, e2e 19/19, lint y build limpios.
+  - CI verde (lint + unit + build + e2e + seed) y SAST (CodeQL + Semgrep) en GitHub Actions; gitleaks en CI (TT-02).
+  - Documentación: DT-09 (free tier $0) y OpenAPI del auth-service (TT-05).
 - **Pieza central del entregable**: [diagrama de actividades del sistema](docs/04-diagrama-de-actividades.md) con carriles Administrativo / Sistema / Docente / Estudiante.
+
+## Estructura del repositorio
+
+```text
+eventivo/
+├── app/                  # Flutter (MVVM + Riverpod + GoRouter) — sprint 2+
+├── services/
+│   └── auth/             # auth-service (NestJS 11, API de autenticación)
+├── gateway/
+│   └── nginx/            # API Gateway Nginx (config en sprint 1 batch 2)
+├── docker/
+│   └── docker-compose.dev.yml  # 5 PostgreSQL 16 + servicios en dev
+├── seeds/
+│   └── run-all.mjs       # runner de seeds de todos los servicios
+├── docs/                 # charter, PRD, casos de uso, arquitectura, decisiones, OpenAPI
+└── .github/workflows/    # ci.yml, service-ci.yml, sast.yml + dependabot.yml
+```
+
+## Secretos de GitHub (solo nombres)
+
+Definidos en **Settings → Secrets and variables → Actions → Repository secrets** de
+<https://github.com/bvillegasa-bit/eventivo>. Los valores reales se cargan en el
+despliegue (deploy de Render/Supabase) y **nunca** se versionan:
+
+| Secreto | Uso |
+|---|---|
+| `DATABASE_URL_AUTH` | URL de conexión PostgreSQL de `auth_db` (demo/producción) |
+| `DATABASE_URL_EVENTO` | URL de conexión PostgreSQL de `evento_db` |
+| `DATABASE_URL_ASISTENCIA` | URL de conexión PostgreSQL de `asistencia_db` |
+| `DATABASE_URL_NOTIFICACION` | URL de conexión PostgreSQL de `notificacion_db` |
+| `DATABASE_URL_REPORTE` | URL de conexión PostgreSQL de `reporte_db` |
+| `JWT_SECRET` | Secreto de firma HS256 (access 15 m + refresh 7 d) |
+| `X_SERVICE_KEY` | Clave de invocación entre servicios (gateway interno) |
+| `FIREBASE_SERVICE_ACCOUNT` | JSON de credenciales de Firebase Cloud Messaging |
+| `RENDER_API_KEY` | Token de la API de Render para deploys automáticos |
 
 ## Índice de documentación
 
@@ -46,6 +86,8 @@ EVENTIVO resuelve ese vacío con: difusión push, recordatorios configurables po
 | [docs/05-arquitectura.md](docs/05-arquitectura.md) | Arquitectura, ERD, contratos API, MVVM Flutter, despliegue |
 | [docs/06-backlog-scrum.md](docs/06-backlog-scrum.md) | Backlog SCRUM: 4 sprints, 77 tareas, Definición de Done, trazabilidad |
 | [docs/07-calidad-y-seguridad.md](docs/07-calidad-y-seguridad.md) | Matriz ISO/IEC 25010, capa OWASP, criterios no funcionales |
+| [docs/decisiones/](docs/decisiones/) | Registro de decisiones de arquitectura (ADR): DT-09 free tier $0 |
+| [docs/api/](docs/api/) | Especificaciones OpenAPI por servicio: auth |
 | [docs/diagramas/](docs/diagramas/) | Diagramas renderizados (PNG) y fuentes (PlantUML/Mermaid) |
 
 ## Repositorio

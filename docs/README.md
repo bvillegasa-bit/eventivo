@@ -14,6 +14,18 @@ Documentación formal de **EVENTIVO**, sistema de seguimiento de eventos académ
 | 06 | [06-backlog-scrum.md](06-backlog-scrum.md) | **Backlog SCRUM** — 4 sprints por verticales, 77 tareas, definición de Done por sprint, roadmap y trazabilidad RF→tareas. |
 | 07 | [07-calidad-y-seguridad.md](07-calidad-y-seguridad.md) | **Calidad y seguridad** — matriz ISO/IEC 25010, capa OWASP Top 10 y criterios de aceptación no funcionales. |
 
+## Decisiones de arquitectura
+
+| Documento | Descripción |
+|---|---|
+| [decisiones/dt-09.md](decisiones/dt-09.md) | **Infraestructura de demo con costo $0** — free tiers (Supabase, Render, FCM, GitHub) y cómo encajan las 5 bases de datos. |
+
+## Especificaciones API (OpenAPI)
+
+| Documento | Descripción |
+|---|---|
+| [api/auth.openapi.yaml](api/auth.openapi.yaml) | **auth-service** — registro (RF-01), login/refresh rotativo/logout (RF-02), RBAC (T-S1.09) y healthcheck. |
+
 ## Diagramas
 
 | Archivo | Contenido |
