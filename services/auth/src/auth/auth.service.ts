@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -138,6 +139,15 @@ export class AuthService {
   }
 
   // ---------- interno ----------
+
+  /** DT-02 — red interna: perfil de un usuario por id (404 si no existe/oculto). */
+  async perfilPorId(usuarioId: string): Promise<PerfilPublico> {
+    const usuario = await this.usuarios.findOneBy({ id: usuarioId });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return this.serializar(usuario);
+  }
 
   async firmarAccess(usuario: Usuario): Promise<string> {
     return this.jwtService.signAsync(

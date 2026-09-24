@@ -9,6 +9,8 @@ import { Usuario } from './entities/usuario.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { XServiceKeyGuard } from './guards/x-service-key.guard';
+import { InternalAuthController } from './internal/internal-auth.controller';
 import { RefreshService } from './refresh/refresh.service';
 
 @Module({
@@ -30,7 +32,14 @@ import { RefreshService } from './refresh/refresh.service';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, RefreshService, JwtAuthGuard, RolesGuard, RateLimitGuard],
+  controllers: [AuthController, InternalAuthController],
+  providers: [
+    AuthService,
+    RefreshService,
+    JwtAuthGuard,
+    RolesGuard,
+    RateLimitGuard,
+    XServiceKeyGuard,
+  ],
 })
 export class AuthModule {}

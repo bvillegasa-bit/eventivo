@@ -348,4 +348,46 @@ describe('auth-service E2E (RF-01, RF-02, RBAC)', () => {
         .expect(400);
     });
   });
+
+  describe('DT-02 /internal/auth/usuarios/:id (red interna, X-Service-Key)', () => {
+    it('rechaza sin X-Service-Key → 403', async () => {
+      await http.get('/internal/auth/usuarios/no-importa').expect(403);
+    });
+
+    it('rechaza con X-Service-Key incorrecta → 403', async () => {
+      await http
+        .get('/internal/auth/usuarios/no-importa')
+        .set('x-service-key', 'clave-equivocada')
+        .expect(403);
+    });
+
+    it('responde 404 si el usuario no existe (aunque la clave sea válida)', async () => {
+      await http
+        .get(`/internal/auth/usuarios/${randomUUID()}`)
+        .set('x-service-key', process.env.X_SERVICE_KEY ?? '')
+        .expect(404);
+    });
+
+    it('devuelve el perfil público del usuario con la clave correcta (sin hash)', async () => {
+      const { body: registro } = await http
+        .post('/auth/registro')
+        .send({
+          email: emailUnico('interno'),
+          password: PASSWORD_VALIDA,
+          rol: 'estudiante',
+          nombres: 'I',
+          apellidos: 'N',
+        })
+        .expect(201);
+
+      const respuesta = await http
+        .get(`/internal/auth/usuarios/${registro.usuario.id}`)
+        .set('x-service-key', process.env.X_SERVICE_KEY ?? '')
+        .expect(200);
+
+      expect(respuesta.body.id).toBe(registro.usuario.id);
+      expect(respuesta.body.email).toBe(registro.usuario.email);
+      expect(JSON.stringify(respuesta.body)).not.toContain('passwordHash');
+    });
+  });
 });

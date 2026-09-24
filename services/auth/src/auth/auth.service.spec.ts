@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -202,6 +203,26 @@ describe('AuthService (RF-01, RF-02)', () => {
       });
       await expect(servicio.miPerfil('usuario-1')).rejects.toThrowError(
         UnauthorizedException,
+      );
+    });
+  });
+
+  describe('perfilPorId (DT-02, red interna)', () => {
+    it('devuelve el perfil público del usuario por id', async () => {
+      const { servicio, usuarios } = crearServicio({ usuarioPorId: mockUsuario() });
+      const perfil = await servicio.perfilPorId('usuario-1');
+
+      expect(usuarios.findOneBy).toHaveBeenCalledWith({ id: 'usuario-1' });
+      expect(perfil).toEqual(
+        expect.objectContaining({ id: 'usuario-1', email: 'alumno@eventivo.ucv.edu.pe' }),
+      );
+      expect(JSON.stringify(perfil)).not.toContain('passwordHash');
+    });
+
+    it('responde 404 si el usuario no existe', async () => {
+      const { servicio } = crearServicio({ usuarioPorId: null });
+      await expect(servicio.perfilPorId('no-existe')).rejects.toThrowError(
+        NotFoundException,
       );
     });
   });
