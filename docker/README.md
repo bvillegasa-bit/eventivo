@@ -4,14 +4,25 @@ Levanta las **5 bases PostgreSQL 16** (una por microservicio, DT-01) y los
 **servicios NestJS** del monorepo en modo watch. Solo `auth` está activo en el
 Sprint 1; los bloques de los demás servicios ya están documentados como plantilla.
 
-## Comandos (desde la raíz del monorepo)
+## Comandos
+
+> El archivo de compose vive en `docker/` y **no hay un `compose.yaml` en la
+> raíz del monorepo**, por lo que `-f` es **obligatorio** en todos los comandos.
+
+### Desde la raíz del monorepo
 
 ```bash
-# 1. Bases de datos (auth_db, evento_db, asistencia_db, notificacion_db, reporte_db)
-docker compose -f docker/docker-compose.dev.yml up -d auth-db
+# 1. Bases de datos + auth + gateway (Sprint 1, compila aquello que haga falta)
+docker compose -f docker/docker-compose.dev.yml up -d --build auth-db gateway auth
 
-# 2. auth-service (compila la imagen la primera vez)
-docker compose -f docker/docker-compose.dev.yml up auth
+# 2. Para levantar TODO el entorno (incluye las 5 bases, que ya están listas):
+docker compose -f docker/docker-compose.dev.yml up -d --build
+```
+
+### Desde la carpeta `docker/`
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --build auth-db gateway auth
 ```
 
 ## Puertos
@@ -32,7 +43,7 @@ docker compose -f docker/docker-compose.dev.yml up auth
 - ⚠️ Son valores de desarrollo local **NO versionados en producción**; en producción
   (Supabase) las credenciales van en GitHub Secrets (ver README raíz).
 
-## Verificación
+## Verificación (desde la raíz del monorepo)
 
 ```bash
 # Migraciones (se aplican solas al arrancar el servicio) + seed idempotente de 2 admins:

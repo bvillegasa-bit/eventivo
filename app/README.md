@@ -13,6 +13,9 @@ auth-service, con el patrón **MVVM** (Riverpod) y **GoRouter**.
 
 ## Configurar la base URL de la API
 
+> Todos los comandos `flutter …` (incluida esta tabla) se ejecutan desde la
+> carpeta **`app/`**, donde vive el `pubspec.yaml`.
+
 La app compila la base URL del backend desde `--dart-define`. Por defecto apunta
 al auth-service directo (emulador Android):
 
@@ -59,6 +62,8 @@ app/lib/
   `10.0.2.2`/`localhost`/`127.0.0.1`; iOS usa `NSAllowsLocalNetworking` (ATS).
 
 ## Probar
+
+Todos los comandos se ejecutan desde la carpeta **`app/`**:
 
 ```bash
 flutter pub get

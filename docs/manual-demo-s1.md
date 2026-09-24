@@ -14,14 +14,15 @@ Duración sugerida: **10–12 minutos**.
 | Pieza | Estado en demo |
 |---|---|
 | Repositorio | `https://github.com/bvillegasa-bit/eventivo` (rama `main`, CI verde) |
-| Entorno local | `docker compose -f docker/docker-compose.dev.yml up -d auth-db` |
-| auth-service | `docker compose … up auth` (`:3001`) |
-| Gateway Nginx | `docker compose … up gateway` (`:8080`) |
-| App Flutter | `flutter run` con `--dart-define=API_BASE_URL=http://10.0.2.2:8080` |
+| Entorno local (raíz del monorepo) | `docker compose -f docker/docker-compose.dev.yml up -d --build auth-db gateway auth` |
+| auth-service | arranca con el comando anterior (`:3001`) |
+| Gateway Nginx | arranca con el comando anterior (`:8080`) |
+| App Flutter | `cd app` + `flutter pub get` + `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080` |
 
-> La app apunta al **gateway** (`:8080`) para demostrar el punto único de
-> entrada; el valor por defecto `http://10.0.2.2:3001` (servicio directo) queda
-> como fallback de desarrollo.
+> Comandos ejecutados desde la **raíz del monorepo**; los de la app Flutter,
+> dentro de `app/`. La app apunta al **gateway** (`:8080`) para demostrar el
+> punto único de entrada; el valor por defecto `http://10.0.2.2:3001` (servicio
+> directo) queda como fallback de desarrollo.
 
 ## 1. Salud del sistema (1 min)
 
@@ -57,7 +58,8 @@ curl -s -X POST http://localhost:8080/auth/registro \
 
 1. **Cerrar la app** (kill) tras iniciar sesión y **reabrirla** → el splash
    restaura la sesión desde el almacenamiento seguro (no pide credenciales).
-2. Con la app abierta: reiniciar el auth-service (`docker compose restart auth`)
+2. Con la app abierta: reiniciar el auth-service
+   (`docker compose -f docker/docker-compose.dev.yml restart auth`)
    → el interceptor detecta `401` en una petición protegida, **rota el refresh
    token** y reintenta la petición automáticamente (sin cerrar sesión).
 
@@ -128,9 +130,10 @@ que el **costo de la demo es $0** (DT-09).
 
 ## Checklist previo a la demo
 
-- [ ] `docker compose -f docker/docker-compose.dev.yml up --build auth gateway` sin errores
+- [ ] `docker compose -f docker/docker-compose.dev.yml up -d --build auth-db gateway auth` sin errores
 - [ ] `gh run list --limit 3` → último run verde (jobs: gitleaks, auth, openapi, app)
 - [ ] Emulador Android con la app instalada y apuntando a `API_BASE_URL=http://10.0.2.2:8080`
+      (lanzar con `cd app && flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080`)
 - [ ] Terminal preparada con los `curl` de las secciones 1, 5 y 6 (historial listo)
 - [ ] Marco el caso Juan Pérez: "difusión → se entera → asiste" pero **confirmado y con recordatorio** (valor de negocio)
 

@@ -59,6 +59,39 @@ eventivo/
 └── .github/workflows/    # ci.yml, service-ci.yml, sast.yml + dependabot.yml
 ```
 
+## Inicio rápido (development)
+
+El archivo de compose vive en `docker/` y **no es autodetectable**: no hay un
+`compose.yaml` en la raíz, por lo que `-f` es **obligatorio** en todos los
+comandos de Docker Compose.
+
+```bash
+# 1. Levantar el backend local (desde la raíz del monorepo)
+docker compose -f docker/docker-compose.dev.yml up -d --build
+
+# Solo los servicios activos del Sprint 1 (auth-db + auth + gateway):
+docker compose -f docker/docker-compose.dev.yml up -d --build auth-db gateway auth
+```
+
+Health checks:
+
+```bash
+curl http://localhost:3001/health   # auth-service -> {"estado":"ok","servicio":"auth",...}
+curl http://localhost:8080          # gateway -> 200
+```
+
+```bash
+# 2. Correr la app Flutter — pubspec.yaml está en app/ (no en apps/)
+cd app
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+```
+
+```bash
+# 3. Manual de demo del Sprint 1
+#    docs/manual-demo-s1.md  (guion paso a paso con evidencia y curl)
+```
+
 ## Secretos de GitHub (solo nombres)
 
 Definidos en **Settings → Secrets and variables → Actions → Repository secrets** de
