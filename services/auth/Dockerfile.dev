@@ -1,0 +1,18 @@
+# ---------------------------------------------------------------
+# Dockerfile.dev — auth-service (desarrollo con watch + recarga)
+# ---------------------------------------------------------------
+# Uso: docker compose -f docker/docker-compose.dev.yml up auth
+# El código se monta como bind mount; node_modules se instala EN el contenedor
+# (Linux) y se preserva con un volumen anónimo (ver compose), evitando usar
+# el node_modules de Windows del host.
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+
+EXPOSE 3001
+CMD ["npm", "run", "start:dev"]

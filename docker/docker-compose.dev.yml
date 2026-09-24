@@ -1,0 +1,156 @@
+# =============================================================================
+# EVENTIVO — entorno de DESARROLLO local (T-S1.02)
+# 5 bases PostgreSQL 16 (1 por servicio, DT-01) + auth-service en watch mode.
+# Los servicios restantes (evento, asistencia, notificacion, reporte) se añaden
+# en sus respectivos sprints; sus bloques están documentados abajo como plantilla.
+#
+# Uso (desde la raíz del monorepo):
+#   docker compose -f docker/docker-compose.dev.yml up -d auth-db
+#   cp services/auth/.env.example services/auth/.env
+#   npm --prefix services/auth run seed   # opcional: 2 administrativos demo (T-S1.10)
+#   docker compose -f docker/docker-compose.dev.yml up auth
+#
+# Probar: http://localhost:3001/health  ->  {"estado":"ok","servicio":"auth",...}
+# =============================================================================
+
+name: eventivo-dev
+
+services:
+  # ------------------------------------------------------------ bases de datos
+  auth-db:
+    image: postgres:16-alpine
+    container_name: eventivo-auth-db
+    environment:
+      POSTGRES_USER: eventivo
+      POSTGRES_PASSWORD: eventivo_desarrollo_local
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventivo -d auth_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  evento-db:
+    image: postgres:16-alpine
+    container_name: eventivo-evento-db
+    environment:
+      POSTGRES_USER: eventivo
+      POSTGRES_PASSWORD: eventivo_desarrollo_local
+      POSTGRES_DB: evento_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - evento_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventivo -d evento_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  asistencia-db:
+    image: postgres:16-alpine
+    container_name: eventivo-asistencia-db
+    environment:
+      POSTGRES_USER: eventivo
+      POSTGRES_PASSWORD: eventivo_desarrollo_local
+      POSTGRES_DB: asistencia_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - asistencia_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventivo -d asistencia_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  notificacion-db:
+    image: postgres:16-alpine
+    container_name: eventivo-notificacion-db
+    environment:
+      POSTGRES_USER: eventivo
+      POSTGRES_PASSWORD: eventivo_desarrollo_local
+      POSTGRES_DB: notificacion_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - notificacion_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventivo -d notificacion_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  reporte-db:
+    image: postgres:16-alpine
+    container_name: eventivo-reporte-db
+    environment:
+      POSTGRES_USER: eventivo
+      POSTGRES_PASSWORD: eventivo_desarrollo_local
+      POSTGRES_DB: reporte_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - reporte_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventivo -d reporte_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ------------------------------------------------------------ servicios API
+  auth:
+    build:
+      context: ../services/auth
+      dockerfile: Dockerfile.dev
+    container_name: eventivo-auth
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_USER: eventivo
+      DB_PASSWORD: eventivo_desarrollo_local
+      DB_NAME: auth_db
+      JWT_SECRET: clave-local-de-desarrollo-eventivo-cambiar-1234567890
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      JWT_ISSUER: https://api.eventivo.ucv.edu.pe
+      JWT_AUDIENCE: eventivo-app
+      X_SERVICE_KEY: x-service-key-local-desarrollo-eventivo
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../services/auth:/app
+      - /app/node_modules
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # Plantilla para los servicios restantes (se activan en sprints 2-4):
+  # evento:
+  #   build: ../services/evento
+  #   container_name: eventivo-evento
+  #   environment: { PORT: 3002, DB_HOST: evento-db, ... }
+  #   ports: ["3002:3002"]
+  #   depends_on: { evento-db: { condition: service_healthy } }
+  # asistencia:  { PORT: 3003, DB_HOST: asistencia-db }
+  # notificacion:{ PORT: 3004, DB_HOST: notificacion-db }
+  # reporte:     { PORT: 3005, DB_HOST: reporte-db }
+
+volumes:
+  auth_db_data:
+  evento_db_data:
+  asistencia_db_data:
+  notificacion_db_data:
+  reporte_db_data:
