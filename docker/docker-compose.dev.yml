@@ -1,6 +1,7 @@
 # =============================================================================
 # EVENTIVO — entorno de DESARROLLO local (T-S1.02)
-# 5 bases PostgreSQL 16 (1 por servicio, DT-01) + auth-service en watch mode.
+# 5 bases PostgreSQL 16 (1 por servicio, DT-01) + auth-service en watch mode
+# + gateway Nginx (T-S1.14).
 # Los servicios restantes (evento, asistencia, notificacion, reporte) se añaden
 # en sus respectivos sprints; sus bloques están documentados abajo como plantilla.
 #
@@ -8,9 +9,11 @@
 #   docker compose -f docker/docker-compose.dev.yml up -d auth-db
 #   cp services/auth/.env.example services/auth/.env
 #   npm --prefix services/auth run seed   # opcional: 2 administrativos demo (T-S1.10)
-#   docker compose -f docker/docker-compose.dev.yml up auth
+#   docker compose -f docker/docker-compose.dev.yml up auth gateway
 #
 # Probar: http://localhost:3001/health  ->  {"estado":"ok","servicio":"auth",...}
+#         http://localhost:8080/healthz ->  "ok"
+#         http://localhost:8080/auth/health (vía gateway; /internal/* da 403)
 # =============================================================================
 
 name: eventivo-dev
@@ -136,6 +139,25 @@ services:
       timeout: 5s
       retries: 12
       start_period: 60s
+
+  # ------------------------------------------------------------ gateway (DT-02)
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: eventivo-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ../gateway/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../gateway/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   # Plantilla para los servicios restantes (se activan en sprints 2-4):
   # evento:
