@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /services/auth
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Lima
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - auth-service
+    versioning-strategy: auto
+    commit-message:
+      prefix: 'chore(deps):'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Lima
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    commit-message:
+      prefix: 'chore(deps):'

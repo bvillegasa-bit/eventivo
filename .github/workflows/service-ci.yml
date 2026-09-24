@@ -1,0 +1,101 @@
+name: service-ci
+
+# Workflow reutilizable (T-S1.03): lint + unit + build + e2e + seed por servicio.
+# Uso: services/auth se prueban contra un Postgres 16 efímero (service container).
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        type: string
+        required: true
+        description: 'Directorio del servicio, p. ej. services/auth'
+      node_version:
+        type: string
+        required: false
+        default: '20'
+        description: 'Versión de Node.js (LTS)'
+      db_user:
+        type: string
+        required: false
+        default: 'eventivo'
+      db_password:
+        type: string
+        required: false
+        default: 'eventivo_pruebas_ci'
+      db_name:
+        type: string
+        required: false
+        default: 'auth_db'
+      run_e2e:
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  test:
+    name: lint + unit + build + e2e + seed
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ${{ inputs.db_user }}
+          POSTGRES_PASSWORD: ${{ inputs.db_password }}
+          POSTGRES_DB: ${{ inputs.db_name }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ${{ inputs.db_user }} -d ${{ inputs.db_name }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (eslint, 0 warnings)
+        run: npm run lint
+
+      - name: Tests unitarios + cobertura
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: E2E contra Postgres (service container)
+        if: ${{ inputs.run_e2e }}
+        env:
+          DB_HOST: localhost
+          DB_PORT: '5432'
+          DB_USER: ${{ inputs.db_user }}
+          DB_PASSWORD: ${{ inputs.db_password }}
+          DB_NAME: ${{ inputs.db_name }}
+        run: npm run test:e2e
+
+      - name: Seed de administradores (idempotente, T-S1.10)
+        env:
+          DB_HOST: localhost
+          DB_PORT: '5432'
+          DB_USER: ${{ inputs.db_user }}
+          DB_PASSWORD: ${{ inputs.db_password }}
+          DB_NAME: ${{ inputs.db_name }}
+          JWT_SECRET: 'clave-ci-no-secreta-para-seed-1234567890123456'
+          JWT_ISSUER: 'https://api.eventivo.ucv.edu.pe'
+          JWT_AUDIENCE: 'eventivo-app'
+          X_SERVICE_KEY: 'x-service-key-ci-no-secreto'
+          SEED_ADMIN_EMAILS: 'admin@eventivo.ucv.edu.pe'
+          SEED_ADMIN_PASSWORD: 'ClaveSeedPrueba2026!'
+        run: npm run seed

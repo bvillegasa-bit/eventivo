@@ -1,0 +1,41 @@
+name: ci
+
+# CI principal (T-S1.03): gitleaks (TT-02) + matriz de servicios vía service-ci.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: gitleaks — detección de secretos (TT-02)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks detect
+        uses: docker://ghcr.io/gitleaks/gitleaks:latest
+        with:
+          args: detect --source . --redact --verbose
+
+  auth:
+    name: auth-service
+    uses: ./.github/workflows/service-ci.yml
+    with:
+      working_directory: services/auth
+
+  # Plantilla para incorporar más servicios en sprints siguientes:
+  # evento:
+  #   name: evento-service
+  #   uses: ./.github/workflows/service-ci.yml
+  #   with:
+  #     working_directory: services/evento
+  #     db_name: evento_db
